@@ -1,0 +1,6 @@
+{
+  "name": "Omo UI final",
+  "description": "An AI-powered recruitment dashboard to manage job applicants through various hiring stages, inspired by the provided UI. Features a Kanban board view of candidates and a Gemini-powered chat for comparing applicants.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
