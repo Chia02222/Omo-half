@@ -1,0 +1,494 @@
+// Prisma schema for Omo-UI HR Hiring System
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  name      String
+  role      UserRole @default(HR)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidates        Candidate[]
+  interviewNotes    InterviewNote[]
+  scheduledSessions ScheduledSession[] @relation("ScheduledSessionHRUser")
+  activities        ActivityLog[]
+  
+  @@map("users")
+}
+
+model Job {
+  id              String   @id @default(cuid())
+  title           String
+  department      String
+  status          JobStatus @default(ACTIVE)
+  level           String
+  experience      String
+  employmentType  String
+  workType        String
+  salary          String?
+  location        String
+  deadline        DateTime?
+  description     String
+  
+  // Requirements
+  visibleRequirements   String[]
+  invisibleRequirements String[]
+  responsibilities      String[]
+  
+  // Metrics
+  applicantCount  Int      @default(0)
+  latestUpdate    DateTime @default(now())
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidates CandidateJob[]
+  
+  @@map("jobs")
+}
+
+model Candidate {
+  id            String        @id @default(cuid())
+  hrUserId      String
+  name          String
+  note          String?
+  avatarUrl     String?
+  
+  // Personal Information
+  personalInfo  Json          // Stores gender, dob, email, phone, address
+  socialLinks   Json?         // Stores linkedin, twitter, github
+  overview      String?
+  
+  // Resume Data
+  resumeUrl     String?
+  skills        String[]      @default([])
+  languages     Json[]        @default([]) // Array of {name, proficiency}
+  interests     String[]      @default([])
+  attachments   Json[]        @default([]) // Array of {type, fileName, linkOrPdf}
+  
+  // Current Status
+  currentStage  HiringStage   @default(OMOED)
+  status        CandidateStatus @default(ACTIVE)
+  
+  // Overall Progress
+  totalScore    Float         @default(0)
+  
+  // Timestamps
+  appliedAt     DateTime      @default(now())
+  rejectedAt    DateTime?
+  hiredAt       DateTime?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Relations
+  hrUser            User                @relation(fields: [hrUserId], references: [id])
+  appliedJobs       CandidateJob[]
+  workExperience    WorkExperience[]
+  education         Education[]
+  certifications    Certification[]
+  awards            Award[]
+  projects          Project[]
+  hiringProgress    HiringProgress[]
+  scheduledSessions ScheduledSession[]
+  audioAnalyses     AudioAnalysis[]
+  technicalTests    TechnicalTest[]
+  activities        ActivityLog[]
+  interviewNotes    InterviewNote[]
+  
+  @@map("candidates")
+}
+
+model CandidateJob {
+  id          String @id @default(cuid())
+  candidateId String
+  jobId       String
+  
+  appliedAt   DateTime @default(now())
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  @@unique([candidateId, jobId])
+  @@map("candidate_jobs")
+}
+
+model WorkExperience {
+  id           String  @id @default(cuid())
+  candidateId  String
+  company      String
+  logoUrl      String?
+  title        String
+  period       String
+  description  String[]
+  verified     Boolean @default(false)
+  verifiedDetail String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("work_experiences")
+}
+
+model Education {
+  id           String  @id @default(cuid())
+  candidateId  String
+  institution  String
+  degree       String
+  period       String
+  verified     Boolean @default(false)
+  verifiedDetail String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("education")
+}
+
+model Certification {
+  id             String  @id @default(cuid())
+  candidateId    String
+  name           String
+  verified       Boolean @default(false)
+  verifiedDetail String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("certifications")
+}
+
+model Award {
+  id           String   @id @default(cuid())
+  candidateId  String
+  title        String
+  period       String
+  description  String[]
+  verified     Boolean  @default(false)
+  verifiedDetail String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("awards")
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  candidateId  String
+  title        String
+  period       String
+  description  String[]
+  verified     Boolean  @default(false)
+  verifiedDetail String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("projects")
+}
+
+model HiringProgress {
+  id          String      @id @default(cuid())
+  candidateId String
+  stage       HiringStage
+  
+  // Stage Status
+  date        String?     // Date as string to match your format
+  status      StageStatus @default(PENDING)
+  nextStage   Boolean     @default(false)
+  score       Float?
+  
+  // Percentile ranking (for Omo-ed stage)
+  percentileRanking String?
+  
+  // Feedback and Notes
+  feedback    Json[]      @default([]) // Array of {text, status}
+  hrNotes     Json[]      @default([]) // Array of {mark, comment}
+  participants Json[]     @default([]) // Array of {name, role?, mark?, comment?}
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@unique([candidateId, stage])
+  @@map("hiring_progress")
+}
+
+model ScheduledSession {
+  id           String      @id @default(cuid())
+  candidateId  String
+  hrUserId     String
+  jobId        String?
+  
+  // Session Details
+  stage        HiringStage
+  dateTime     String      // "October 15, 2030 - 2:00 PM"
+  platform     String      // "Zoom", "Teams", etc.
+  participants Json[]      // Array of {name, role}
+  
+  // Status
+  status       SessionStatus @default(SCHEDULED)
+  
+  // Meeting Details
+  meetingLink  String?
+  meetingId    String?
+  notes        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  hrUser    User      @relation("ScheduledSessionHRUser", fields: [hrUserId], references: [id])
+  
+  @@map("scheduled_sessions")
+}
+
+model AudioAnalysis {
+  id          String @id @default(cuid())
+  candidateId String
+  
+  // Audio File Info
+  fileName    String
+  fileUrl     String
+  fileSize    Int?
+  duration    Float?  // in seconds
+  
+  // Analysis Results
+  overallScore      Float?
+  communicationScore Float?
+  confidenceScore   Float?
+  clarityScore      Float?
+  
+  // Detailed Feedback
+  feedback    Json[]  @default([]) // Array of feedback objects
+  
+  // Processing Status
+  status      AnalysisStatus @default(PENDING)
+  errorMessage String?
+  
+  // Telegram Bot Info
+  telegramMessageId String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("audio_analyses")
+}
+
+model TechnicalTest {
+  id          String @id @default(cuid())
+  candidateId String
+  
+  // Test Details
+  testType    String  // "IQ", "Technical Quiz", "Coding Challenge"
+  questions   Json[]  // Array of question objects
+  answers     Json[]  // Array of answer objects
+  
+  // Scoring
+  totalQuestions    Int
+  correctAnswers    Int
+  score            Float
+  percentageScore  Float
+  
+  // Feedback
+  feedback    Json[]  @default([]) // Array of feedback objects
+  
+  // Status
+  status      TestStatus @default(PENDING)
+  startedAt   DateTime?
+  completedAt DateTime?
+  timeLimit   Int?        // in minutes
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  @@map("technical_tests")
+}
+
+model InterviewNote {
+  id          String @id @default(cuid())
+  candidateId String
+  hrUserId    String
+  stage       HiringStage
+  
+  // Note Details
+  title       String?
+  content     String
+  rating      Float?
+  tags        String[] @default([])
+  
+  // Privacy
+  isPrivate   Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  hrUser    User      @relation(fields: [hrUserId], references: [id])
+  
+  @@map("interview_notes")
+}
+
+model ActivityLog {
+  id          String @id @default(cuid())
+  candidateId String?
+  hrUserId    String
+  
+  // Activity Details
+  action      String  // "stage_progress", "note_added", "score_updated", etc.
+  description String
+  metadata    Json?   // Additional context data
+  
+  // References
+  relatedStage HiringStage?
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  hrUser    User       @relation(fields: [hrUserId], references: [id])
+  
+  @@map("activity_logs")
+}
+
+model SMARSConfig {
+  id          String @id @default(cuid())
+  
+  // SMARS Analysis Configuration
+  criteria    Json    // Scoring criteria and weights
+  thresholds  Json    // Percentile thresholds (Top 1%, Top 20%, etc.)
+  
+  // Model Settings
+  aiModel     String  @default("gemini-pro")
+  temperature Float   @default(0.7)
+  
+  isActive    Boolean @default(true)
+  version     String  @default("1.0")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("smars_config")
+}
+
+model TelegramBot {
+  id        String @id @default(cuid())
+  
+  // Bot Configuration
+  botToken  String
+  chatId    String?
+  isActive  Boolean @default(true)
+  
+  // Webhook Settings
+  webhookUrl String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("telegram_bots")
+}
+
+// Enums
+enum UserRole {
+  HR
+  MANAGER
+  ADMIN
+  INTERVIEWER
+}
+
+enum JobStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+  DRAFT
+}
+
+enum CandidateStatus {
+  ACTIVE
+  REJECTED
+  HIRED
+  WITHDRAWN
+}
+
+enum HiringStage {
+  OMOED
+  SCREENING
+  TECHNICAL_TEST
+  FINAL_INTERVIEW
+  HIRED
+  REJECTED
+}
+
+enum StageStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETE
+  SKIPPED
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+} 
